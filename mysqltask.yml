@@ -1,0 +1,97 @@
+---
+  tasks:
+    - name: Update repositories cache and install
+      apt:
+        update_cache: yes
+    - name: add mysql user
+      ansible.builtin.group:
+        name: mysql
+        state: present
+    - name: Add the user 'johnd' with a specific uid and a primary group of 'admin'
+      ansible.builtin.user:
+        name: mysql
+    - name: Download mysql
+      get_url:
+        url: "https://dev.mysql.com/get/Downloads/MySQL-5.6/mysql-5.6.46-linux-glibc2.12-x86_64.tar.gz"
+        dest: "{{ home_dir }}"
+    - name: Unarchive mysql
+      ansible.builtin.unarchive:
+        src: "{{ home_dir }}/mysql-5.6.46-linux-glibc2.12-x86_64.tar.gz"
+        dest: "{{ home_dir }}"
+        remote_src: yes
+    - name: Copy file with owner and permissions
+      ansible.builtin.copy:
+        src: "{{ home_dir }}/mysql-5.6.46-linux-glibc2.12-x86_64"
+        dest: /usr/local/mysql
+        mode: '0755'
+    - name: Recursively change ownership of a directory
+      ansible.builtin.file:
+        path: "{{ mysql_bin }}"
+        recurse: yes
+        state: directory
+        owner: "{{ username }}"
+        group: "{{ username }}"
+    - name: install  libaio1 libncurses5 libnuma-dev
+      apt:
+        name: item
+        state: present
+      with_items:
+        - libaio1
+        - libncurses5
+        - libnuma-dev
+      notify:
+          - Install mysql
+    - name: Recursively change ownership of a mysql directory
+      ansible.builtin.file:
+        path: "{{ mysql_bin }}"
+        recurse: yes
+        state: directory
+        owner: root
+    - name: Recursively change ownership of a mysql directory
+      ansible.builtin.file:
+        path: "{{ mysql_bin }}"
+        recurse: yes
+        state: directory
+        owner: mysql
+    - name: Copy file with owner and permissions
+      ansible.builtin.copy:
+        src: /usr/local/mysql/mysql-5.6.46-linux-glibc2.12-x86_64/support-files/my-default.cnf
+        dest: /etc/my.cnf 
+        remote_src: yes 
+    - name: Copy file with owner and permissions
+      ansible.builtin.copy:
+        src: /usr/local/mysql/mysql-5.6.46-linux-glibc2.12-x86_64/support-files/mysql.server
+        dest: /etc/init.d/mysql.server
+        remote_src: yes
+        mode: 1777
+      notify: start the MySQL service
+    - name: create a link of the MySQL binary
+      ansible.builtin.file:
+        src: /usr/local/mysql/mysql-5.6.46-linux-glibc2.12-x86_64/support-files/bin/mysql
+        dest: /usr/local/bin/mysql
+        owner: "{{ username }}"
+        group: "{{ username }}"
+        state: link
+    - name: Make sure mysql.server is started
+      sysvinit:
+        name: mysql.server
+        state: started
+        enabled: yes
+    - name: reload the daemon, enable and start the mysql server
+      ansible.builtin.systemd:
+        name: 'mysql.server'
+        daemon_reload: yes
+        state: started
+  handlers:
+    - name: Install mysql
+      command:
+        cmd: /usr/local/mysql/mysql-5.6.46-linux-glibc2.12-x86_64/scripts/mysql_install_db --user=mysql
+    - name: start the MYSQL service
+      command:
+        chdir: /usr/local/mysql/mysql-5.6.46-linux-glibc2.12-x86_64
+        cmd: bin/mysqld_safe --user=mysql & bin/mysqladmin -u root password newpassword
+
+
+
+    
+        
